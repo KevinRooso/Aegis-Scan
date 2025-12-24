@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegisscan-backend"
+version = "0.1.0"
+description = "FastAPI backend + orchestrator for AegisScan multi-agent pentest assistant"
+authors = [
+    {name = "AegisScan Dev Team", email = "devnull@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.6.4",
+    "pydantic-settings>=2.2.1",
+    "python-dotenv>=1.0.1",
+    "httpx>=0.27.0",
+    "aiofiles>=23.2.1",
+    "orjson>=3.10.0",
+    "tenacity>=8.4.1",
+    "sqlmodel>=0.0.18",
+    "typer>=0.12.3",
+    "rich>=13.7.1"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.2",
+    "pytest-asyncio>=0.23.7",
+    "ruff>=0.6.5"
+]
+
+[project.scripts]
+aegisscan-api = "app.main:run"
+aegisscan = "app.cli:main"

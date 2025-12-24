@@ -1,0 +1,10 @@
+node_modules
+frontend/node_modules
+backend/.venv
+pentest_output
+.env
+**/__pycache__
+**/*.pyc
+.git
+.gitignore
+fronted/dist

@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: aegisscan-backend
+    command: ["aegisscan", "serve", "--host", "0.0.0.0", "--port", "8000"]
+    env_file:
+      - backend/.env
+    environment:
+      - GIT_WORKSPACES_DIR=/tmp/aegis-workspaces
+      - RESULTS_DIR=/output
+    volumes:
+      - ./pentest_output:/output
+      - git-workspaces:/tmp/aegis-workspaces
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: node:20
+    container_name: aegisscan-frontend
+    working_dir: /app
+    env_file:
+      - backend/.env
+    environment:
+      VITE_API_BASE: http://localhost:8000
+      VITE_BACKEND_URL: http://localhost:8000
+    command: >
+      sh -c "export VITE_ELEVENLABS_AGENT_ID=\"$ELEVENLABS_AGENT_ID\" &&
+             corepack enable pnpm &&
+             pnpm install &&
+             pnpm dev --host 0.0.0.0 --port 5173"
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+  cli:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: aegisscan-cli
+    entrypoint: ["sleep", "infinity"]
+    env_file:
+      - backend/.env
+    environment:
+      - GIT_WORKSPACES_DIR=/tmp/aegis-workspaces
+      - RESULTS_DIR=/output
+    volumes:
+      - ./pentest_output:/output
+      - git-workspaces:/tmp/aegis-workspaces
+
+volumes:
+  git-workspaces:
+    driver: local
+
+
+
+
+
