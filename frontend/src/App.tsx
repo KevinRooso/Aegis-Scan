@@ -8,7 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MainLayout } from './layouts/MainLayout';
 import { Dashboard } from './pages/Dashboard';
-import { VoiceAgent } from './pages/VoiceAgent';
+import { VoiceAgentCinematic } from './pages/VoiceAgentCinematic';
 import { History } from './pages/History';
 import { ScanProvider } from './contexts/ScanContext';
 
@@ -30,7 +30,7 @@ export default function App() {
             <Route path="/" element={<MainLayout />}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
-              <Route path="voice-agent" element={<VoiceAgent />} />
+              <Route path="voice-agent" element={<VoiceAgentCinematic />} />
               <Route path="history" element={<History />} />
             </Route>
           </Routes>

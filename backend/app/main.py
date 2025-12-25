@@ -4,14 +4,14 @@ import logging
 from pathlib import Path
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, ORJSONResponse
 
 from app.config import Settings, get_settings
 from app.database import init_db
 from app.orchestrator import Orchestrator
-from app.schemas import ReportResponse, ScanRequest, ScanResponse, ScanStatus, VoiceRequest, VoiceResponse
+from app.schemas import ReportResponse, ScanRequest, ScanResponse, ScanStatus, VoiceRequest, VoiceResponse, VoiceFocusRequest
 from app.web.websocket_manager import WebsocketManager
 from app.services.voice import VoiceNotifier
 from app.services.voice_parser import VoiceInputParser
@@ -179,6 +179,60 @@ async def end_voice_conversation(
         "conversation_id": conversation_id,
         "status": "ended",
     }
+
+
+@app.post("/api/voice/focus")
+async def voice_focus_command(
+    request: Request,
+) -> dict:
+    """
+    Endpoint for ElevenLabs voice agent to control frontend focus.
+    Called when the agent wants to highlight a specific finding or change the view.
+
+    This enables voice-to-visual synchronization where Aegis can direct the user's
+    attention to specific findings as it discusses them.
+    """
+    try:
+        # Get raw body for debugging
+        body = await request.json()
+        logger.info(f"Received voice focus request: {body}")
+
+        # Fix: ElevenLabs sends 'data' as a JSON string instead of an object
+        # Convert string to dict if needed
+        if isinstance(body.get("data"), str):
+            import json
+            try:
+                body["data"] = json.loads(body["data"])
+                logger.info(f"Converted data from string to dict: {body['data']}")
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse data JSON string: {e}")
+                raise HTTPException(status_code=422, detail=f"Invalid JSON in data field: {str(e)}")
+
+        # Parse and validate
+        try:
+            focus_request = VoiceFocusRequest(**body)
+        except Exception as validation_error:
+            logger.error(f"Validation error: {validation_error}")
+            logger.error(f"Raw body was: {body}")
+            raise HTTPException(status_code=422, detail=f"Invalid request format: {str(validation_error)}")
+
+        # Broadcast focus command to all connected clients for this scan
+        await ws_manager.broadcast(focus_request.scan_id, {
+            "type": "voice_focus",
+            "action": focus_request.action.value,
+            "data": focus_request.data,
+        })
+
+        return {
+            "status": "success",
+            "scan_id": focus_request.scan_id,
+            "action": focus_request.action.value,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error broadcasting voice focus command: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to broadcast focus command: {str(e)}")
 
 
 @app.get("/api/voice/scan/latest")

@@ -24,8 +24,11 @@ export function useScanWebsocket({ scanId, onMessage }: UseWebsocketOptions): vo
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data?.status && onMessage) {
-          onMessage(data.status as ScanStatus);
+        if (onMessage) {
+          // Pass the entire message - handler will decide what to do with it
+          // For scan status updates, data will have a 'status' field
+          // For voice focus commands, data will have 'type', 'action', 'data'
+          onMessage(data?.status ? data.status : data);
         }
       } catch (error) {
         console.error("Failed to parse websocket payload", error);
