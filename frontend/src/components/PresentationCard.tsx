@@ -107,7 +107,7 @@ export function PresentationCard(props: PresentationCardProps) {
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="relative w-full max-w-4xl"
+        className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto"
       >
         {/* Glow effect */}
         <div className={`absolute inset-0 rounded-3xl blur-3xl opacity-30 ${severityGlow}`} />
@@ -123,23 +123,23 @@ export function PresentationCard(props: PresentationCardProps) {
           {/* Top accent bar */}
           <div className={`h-2 bg-gradient-to-r ${severityColor}`} />
 
-          <div className="p-12">
+          <div className="p-8">
             {/* Header */}
-            <div className="mb-8 flex items-start justify-between">
+            <div className="mb-6 flex items-start justify-between">
               <div>
-                <div className="mb-3 flex items-center gap-3">
-                  <span className={`inline-flex rounded-full bg-gradient-to-r ${severityColor} px-4 py-1.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg`}>
+                <div className="mb-2 flex items-center gap-3">
+                  <span className={`inline-flex rounded-full bg-gradient-to-r ${severityColor} px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-lg`}>
                     {finding.severity}
                   </span>
-                  <span className="text-sm font-medium text-cyan-400/80">
+                  <span className="text-xs font-medium text-cyan-400/80">
                     {finding.source_agent}
                   </span>
                 </div>
-                <h1 className="text-4xl font-bold text-white leading-tight">
+                <h1 className="text-3xl font-bold text-white leading-tight">
                   {finding.title}
                 </h1>
                 {finding.id.includes('CVE-') && (
-                  <div className="mt-3 flex items-center gap-2 text-lg text-cyan-400">
+                  <div className="mt-2 flex items-center gap-2 text-base text-cyan-400">
                     <span className="text-cyan-500/60">●</span>
                     <span className="font-mono">{finding.id.split('_').pop()}</span>
                   </div>
@@ -148,37 +148,37 @@ export function PresentationCard(props: PresentationCardProps) {
             </div>
 
             {/* Description */}
-            <div className="mb-8 rounded-2xl border border-cyan-500/20 bg-slate-950/50 p-6">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-cyan-400">
+            <div className="mb-6 rounded-2xl border border-cyan-500/20 bg-slate-950/50 p-5">
+              <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-cyan-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
                 Description
               </h3>
-              <p className="text-lg leading-relaxed text-gray-300">
+              <p className="text-base leading-relaxed text-gray-300">
                 {finding.description}
               </p>
             </div>
 
             {/* Remediation */}
-            <div className="rounded-2xl border border-emerald-500/20 bg-slate-950/50 p-6">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-emerald-400">
+            <div className="rounded-2xl border border-emerald-500/20 bg-slate-950/50 p-5">
+              <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                 Remediation
               </h3>
-              <p className="text-lg leading-relaxed text-gray-300">
+              <p className="text-base leading-relaxed text-gray-300">
                 {finding.remediation}
               </p>
             </div>
 
             {/* References */}
             {finding.references && finding.references.length > 0 && (
-              <div className="mt-6 flex flex-wrap gap-2">
+              <div className="mt-5 flex flex-wrap gap-2">
                 {finding.references.map((ref, idx) => (
                   <a
                     key={idx}
                     href={ref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-400 transition-all hover:bg-blue-500/20 hover:border-blue-400/50"
+                    className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-sm text-blue-400 transition-all hover:bg-blue-500/20 hover:border-blue-400/50"
                   >
                     Reference {idx + 1} →
                   </a>
@@ -212,19 +212,19 @@ export function PresentationCard(props: PresentationCardProps) {
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="relative w-full max-w-5xl"
+        className="relative w-full max-w-4xl max-h-[85vh] overflow-y-auto"
       >
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 blur-3xl" />
 
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 shadow-2xl backdrop-blur-xl">
           <div className="h-2 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500" />
 
-          <div className="p-12">
-            <h1 className="mb-2 text-5xl font-bold text-white">Scan Complete</h1>
-            <p className="mb-8 text-xl text-gray-400">{status.target}</p>
+          <div className="p-8">
+            <h1 className="mb-2 text-4xl font-bold text-white">Scan Complete</h1>
+            <p className="mb-6 text-lg text-gray-400 truncate">{status.target}</p>
 
             {/* Severity Grid */}
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-5 gap-3">
               {(['critical', 'high', 'medium', 'low', 'info'] as const).map((severity) => {
                 const count = severityCounts[severity];
                 const color = getSeverityColor(severity);
@@ -235,21 +235,21 @@ export function PresentationCard(props: PresentationCardProps) {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 * ['critical', 'high', 'medium', 'low', 'info'].indexOf(severity) }}
-                    className="rounded-2xl border border-white/10 bg-slate-950/50 p-6 text-center"
+                    className="rounded-xl border border-white/10 bg-slate-950/50 p-4 text-center"
                   >
-                    <div className={`mb-3 text-5xl font-bold bg-gradient-to-r ${color} bg-clip-text text-transparent`}>
+                    <div className={`mb-2 text-4xl font-bold bg-gradient-to-r ${color} bg-clip-text text-transparent`}>
                       {count}
                     </div>
-                    <div className="text-sm font-semibold uppercase tracking-wider text-gray-400">
-                      {severity === 'info' ? 'Informational' : severity}
+                    <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      {severity === 'info' ? 'Info' : severity}
                     </div>
                   </motion.div>
                 );
               })}
             </div>
 
-            <div className="mt-8 text-center">
-              <div className="text-2xl font-semibold text-gray-300">
+            <div className="mt-6 text-center">
+              <div className="text-xl font-semibold text-gray-300">
                 Total Findings: <span className="text-cyan-400">{findings.length}</span>
               </div>
             </div>
@@ -269,14 +269,14 @@ export function PresentationCard(props: PresentationCardProps) {
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="relative w-full max-w-3xl"
+        className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto"
       >
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 blur-3xl" />
 
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 shadow-2xl backdrop-blur-xl p-12">
-          <h2 className="mb-8 text-4xl font-bold text-white text-center">Findings Breakdown</h2>
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 shadow-2xl backdrop-blur-xl p-8">
+          <h2 className="mb-6 text-3xl font-bold text-white text-center">Findings Breakdown</h2>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {(['critical', 'high', 'medium', 'low', 'info'] as const).map((severity, idx) => {
               const count = stats[severity];
               const percentage = total > 0 ? (count / total) * 100 : 0;
@@ -288,15 +288,15 @@ export function PresentationCard(props: PresentationCardProps) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 * idx }}
-                  className="flex items-center gap-4"
+                  className="flex items-center gap-3"
                 >
-                  <div className="w-32 text-right">
-                    <span className="text-lg font-semibold capitalize text-gray-300">
+                  <div className="w-24 text-right">
+                    <span className="text-base font-semibold capitalize text-gray-300">
                       {severity === 'info' ? 'Info' : severity}
                     </span>
                   </div>
                   <div className="flex-1">
-                    <div className="h-8 overflow-hidden rounded-full bg-slate-950/50">
+                    <div className="h-7 overflow-hidden rounded-full bg-slate-950/50">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${percentage}%` }}
@@ -327,22 +327,22 @@ export function PresentationCard(props: PresentationCardProps) {
         initial="hidden"
         animate="visible"
         exit="exit"
-        className="relative w-full max-w-2xl"
+        className="relative w-full max-w-xl max-h-[85vh] overflow-y-auto"
       >
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 blur-3xl" />
 
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 shadow-2xl backdrop-blur-xl p-10 text-center">
-          <div className="mb-4">
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-6 py-2 text-sm font-semibold uppercase tracking-wider text-emerald-400">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 shadow-2xl backdrop-blur-xl p-8 text-center">
+          <div className="mb-3">
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 px-5 py-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-400">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
               {status}
             </span>
           </div>
 
-          <h2 className="mb-4 text-3xl font-bold text-white">{agentName} Agent</h2>
+          <h2 className="mb-3 text-2xl font-bold text-white">{agentName} Agent</h2>
 
           {message && (
-            <p className="text-lg text-gray-400">{message}</p>
+            <p className="text-base text-gray-400">{message}</p>
           )}
         </div>
       </motion.div>

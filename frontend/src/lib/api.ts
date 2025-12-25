@@ -32,3 +32,17 @@ export const fetchReport = async (scanId: string): Promise<ReportInfo> => {
   const { data } = await client.get<ReportInfo>(`/report/latest/${scanId}`);
   return data;
 };
+
+export interface LatestScanResponse {
+  status: string;
+  scan_id?: string;
+  target?: string;
+  message?: string;
+  scan_complete?: boolean;
+  total_findings?: number;
+}
+
+export const fetchLatestScan = async (): Promise<LatestScanResponse> => {
+  const { data } = await client.get<LatestScanResponse>('/voice/scan/latest');
+  return data;
+};

@@ -10,7 +10,7 @@ import { HalEye, type EyeState } from '../components/HalEye';
 import { PresentationCard } from '../components/PresentationCard';
 import { useElevenLabs } from '../hooks/useElevenLabs';
 import { useScanWebsocket } from '../hooks/useWebsocket';
-import { fetchScanStatus } from '../lib/api';
+import { fetchScanStatus, fetchLatestScan } from '../lib/api';
 import { useScan } from '../contexts/ScanContext';
 import type { ScanStatus, Finding } from '../types/api';
 
@@ -26,7 +26,25 @@ export function VoiceAgentCinematic() {
   const [eyeState, setEyeState] = useState<EyeState>('idle');
   const [currentContent, setCurrentContent] = useState<ContentState>({ type: null });
   const [isHalMinimized, setIsHalMinimized] = useState(false);
-  const { activeScanId } = useScan();
+  const { activeScanId, setActiveScanId } = useScan();
+
+  // Auto-load latest scan if no active scan is set
+  useEffect(() => {
+    const loadLatestScan = async () => {
+      if (!activeScanId) {
+        try {
+          const latestScan = await fetchLatestScan();
+          if (latestScan.status === 'success' && latestScan.scan_id) {
+            console.log('Auto-loaded latest scan:', latestScan.scan_id);
+            setActiveScanId(latestScan.scan_id);
+          }
+        } catch (error) {
+          console.log('No previous scans found');
+        }
+      }
+    };
+    loadLatestScan();
+  }, [activeScanId, setActiveScanId]);
 
   // ElevenLabs voice integration
   const {
@@ -208,54 +226,10 @@ You can now interact with me about these findings.`;
         />
       </div>
 
-      {/* Main presentation area - center stage */}
-      <div className="relative z-10 flex h-full items-center justify-center p-8">
+      {/* Main presentation area - center stage with proper padding */}
+      <div className="relative z-10 flex h-full items-center justify-center px-4 py-20">
         <AnimatePresence mode="wait">
-          {currentContent.type === null ? (
-            // Welcome/Idle state
-            <motion.div
-              key="idle"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="text-center"
-            >
-              <motion.div
-                animate={{
-                  scale: [1, 1.05, 1],
-                  opacity: [0.7, 1, 0.7],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-                className="mb-8 text-8xl"
-              >
-                👁️
-              </motion.div>
-              <h1 className="mb-4 text-5xl font-bold text-white">
-                {isConnected ? 'Listening...' : 'Ready'}
-              </h1>
-              <p className="text-xl text-gray-400">
-                {isConnected
-                  ? 'Ask me about the scan results'
-                  : 'Start a voice session to begin'}
-              </p>
-
-              {!isConnected && status && status.findings && status.findings.length > 0 && (
-                <motion.button
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  onClick={handleVoiceToggle}
-                  className="mt-8 rounded-full border border-cyan-500/50 bg-cyan-500/10 px-8 py-4 text-lg font-semibold text-cyan-400 transition-all hover:bg-cyan-500/20 hover:border-cyan-400"
-                >
-                  Start Voice Session
-                </motion.button>
-              )}
-            </motion.div>
-          ) : currentContent.type === 'finding' ? (
+          {currentContent.type === 'finding' ? (
             <PresentationCard
               key={`finding-${currentContent.data.id}`}
               type="finding"
@@ -285,9 +259,9 @@ You can now interact with me about these findings.`;
         </AnimatePresence>
       </div>
 
-      {/* HAL Eye - transitions between center and bottom-right */}
+      {/* HAL Eye - enhanced with better glow */}
       <motion.div
-        className="absolute z-20"
+        className="absolute z-30"
         animate={isHalMinimized ? {
           bottom: '2rem',
           right: '2rem',
@@ -309,25 +283,26 @@ You can now interact with me about these findings.`;
         }}
       >
         <div className="relative">
-          {/* Glow effect */}
-          <div className="absolute inset-0 rounded-full bg-red-500/30 blur-2xl" />
+          {/* Enhanced multi-layer glow effect */}
+          <div className="absolute inset-0 -m-4 rounded-full bg-red-500/40 blur-3xl" />
+          <div className="absolute inset-0 -m-2 rounded-full bg-red-600/30 blur-xl" />
 
-          {/* HAL Eye component */}
-          <div className="relative">
+          {/* HAL Eye component with shadow */}
+          <div className="relative drop-shadow-2xl">
             <HalEye state={eyeState} />
           </div>
 
-          {/* Voice controls when minimized */}
+          {/* Voice status indicator when minimized */}
           {isHalMinimized && (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.4 }}
-              className="absolute -top-16 left-1/2 -translate-x-1/2 whitespace-nowrap"
+              className="absolute -top-14 left-1/2 -translate-x-1/2 whitespace-nowrap"
             >
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-2 backdrop-blur-xl">
+              <div className="flex items-center gap-2 rounded-full border border-white/20 bg-black/90 px-3 py-1.5 backdrop-blur-xl shadow-lg">
                 <div className={`h-2 w-2 rounded-full ${isSpeaking ? 'bg-red-500 animate-pulse' : isConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
-                <span className="text-sm font-medium text-white">
+                <span className="text-xs font-medium text-white">
                   {isSpeaking ? 'Speaking' : isConnected ? 'Listening' : 'Offline'}
                 </span>
               </div>
@@ -336,9 +311,11 @@ You can now interact with me about these findings.`;
         </div>
       </motion.div>
 
-      {/* Voice control button - bottom-left */}
+      {/* Voice control button - bottom-left - always visible */}
       <motion.button
-        className="absolute bottom-8 left-8 z-20 flex items-center gap-3 rounded-full border border-white/10 bg-black/80 px-6 py-3 backdrop-blur-xl transition-all hover:bg-black/90 hover:border-white/20"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="absolute bottom-6 left-6 z-20 flex items-center gap-3 rounded-full border border-white/20 bg-black/90 px-6 py-3 backdrop-blur-xl transition-all hover:bg-black hover:border-white/30 shadow-xl"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={handleVoiceToggle}
@@ -349,33 +326,42 @@ You can now interact with me about these findings.`;
         </span>
       </motion.button>
 
-      {/* Scan info - top-left */}
+      {/* Compact scan info - top-left - minimize when content is shown */}
       {status && (
         <motion.div
           initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="absolute top-8 left-8 z-20 rounded-2xl border border-white/10 bg-black/60 px-6 py-4 backdrop-blur-xl"
+          animate={currentContent.type === null ? {
+            opacity: 1,
+            x: 0,
+            scale: 1,
+          } : {
+            opacity: 0.7,
+            x: 0,
+            scale: 0.9,
+          }}
+          className="absolute top-6 left-6 z-20 rounded-xl border border-white/10 bg-black/80 px-4 py-3 backdrop-blur-xl shadow-lg max-w-xs"
         >
-          <div className="text-sm font-semibold uppercase tracking-wider text-gray-400">
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-500">
             Current Scan
           </div>
-          <div className="mt-1 text-lg font-bold text-white">
+          <div className="mt-1 text-sm font-bold text-white truncate">
             {status.target}
           </div>
           {status.findings && (
-            <div className="mt-2 text-sm text-cyan-400">
+            <div className="mt-1 text-xs text-cyan-400">
               {status.findings.length} findings
             </div>
           )}
         </motion.div>
       )}
 
-      {/* Debug clear button - top-right */}
+      {/* Clear button - top-right - only show when content is displayed */}
       {currentContent.type && (
         <motion.button
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="absolute top-8 right-8 z-20 rounded-full border border-white/10 bg-black/60 px-4 py-2 text-sm font-medium text-white backdrop-blur-xl transition-all hover:bg-black/80"
+          exit={{ opacity: 0, x: 20 }}
+          className="absolute top-6 right-6 z-20 rounded-full border border-white/20 bg-black/90 px-4 py-2 text-sm font-medium text-white backdrop-blur-xl transition-all hover:bg-black hover:border-white/30 shadow-lg"
           onClick={() => {
             setCurrentContent({ type: null });
             setIsHalMinimized(false);
