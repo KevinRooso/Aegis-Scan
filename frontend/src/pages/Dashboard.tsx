@@ -45,6 +45,14 @@ export function Dashboard() {
   const queryScanId = searchParams.get('scan_id');
   const displayScanId = queryScanId || activeScanId;
 
+  // Set active scan from query params
+  useEffect(() => {
+    if (queryScanId && queryScanId !== activeScanId) {
+      console.log('Setting active scan from query params:', queryScanId);
+      setActiveScanId(queryScanId);
+    }
+  }, [queryScanId, activeScanId, setActiveScanId]);
+
   const { data } = useQuery({
     queryKey: ["scan-status", displayScanId],
     queryFn: () => fetchScanStatus(displayScanId!),

@@ -10,7 +10,7 @@ import { HalEye, type EyeState } from '../components/HalEye';
 import { PresentationCard } from '../components/PresentationCard';
 import { useElevenLabs } from '../hooks/useElevenLabs';
 import { useScanWebsocket } from '../hooks/useWebsocket';
-import { fetchScanStatus, fetchLatestScan } from '../lib/api';
+import { fetchScanStatus } from '../lib/api';
 import { useScan } from '../contexts/ScanContext';
 import type { ScanStatus, Finding } from '../types/api';
 
@@ -26,25 +26,7 @@ export function VoiceAgentCinematic() {
   const [eyeState, setEyeState] = useState<EyeState>('idle');
   const [currentContent, setCurrentContent] = useState<ContentState>({ type: null });
   const [isHalMinimized, setIsHalMinimized] = useState(false);
-  const { activeScanId, setActiveScanId } = useScan();
-
-  // Auto-load latest scan if no active scan is set
-  useEffect(() => {
-    const loadLatestScan = async () => {
-      if (!activeScanId) {
-        try {
-          const latestScan = await fetchLatestScan();
-          if (latestScan.status === 'success' && latestScan.scan_id) {
-            console.log('Auto-loaded latest scan:', latestScan.scan_id);
-            setActiveScanId(latestScan.scan_id);
-          }
-        } catch (error) {
-          console.log('No previous scans found');
-        }
-      }
-    };
-    loadLatestScan();
-  }, [activeScanId, setActiveScanId]);
+  const { activeScanId } = useScan();
 
   // ElevenLabs voice integration
   const {
@@ -167,21 +149,28 @@ export function VoiceAgentCinematic() {
       setIsHalMinimized(false);
       setCurrentContent({ type: null });
     } else {
+      // Check if we have scan data before starting
+      if (!status || !activeScanId) {
+        console.error('Cannot start voice session: No scan data loaded');
+        alert('Please wait for scan data to load before starting a voice session');
+        return;
+      }
+
+      console.log('Starting voice session with scan:', activeScanId);
       await startConversation();
 
       // Send scan context after connection
-      if (status && activeScanId) {
-        setTimeout(async () => {
-          const findings = status.findings || [];
-          const severityCounts = {
-            critical: findings.filter(f => f.severity === 'critical').length,
-            high: findings.filter(f => f.severity === 'high').length,
-            medium: findings.filter(f => f.severity === 'medium').length,
-            low: findings.filter(f => f.severity === 'low').length,
-            info: findings.filter(f => f.severity === 'informational').length,
-          };
+      setTimeout(async () => {
+        const findings = status.findings || [];
+        const severityCounts = {
+          critical: findings.filter(f => f.severity === 'critical').length,
+          high: findings.filter(f => f.severity === 'high').length,
+          medium: findings.filter(f => f.severity === 'medium').length,
+          low: findings.filter(f => f.severity === 'low').length,
+          info: findings.filter(f => f.severity === 'informational').length,
+        };
 
-          const contextMessage = `[SCAN CONTEXT]
+        const contextMessage = `[SCAN CONTEXT]
 A security scan has completed for: ${status.target}
 
 Total Findings: ${findings.length}
@@ -193,17 +182,18 @@ Total Findings: ${findings.length}
 
 Scan ID: ${activeScanId}
 
-INSTRUCTIONS:
-- Use get_latest_scan_findings webhook for detailed findings
+CRITICAL INSTRUCTIONS FOR FOCUS COMMANDS:
+- The scan_id for all focus_on_finding calls MUST be: ${activeScanId}
 - Use focus_on_finding webhook to show findings visually
-- Available actions: highlight_finding, show_summary, show_stats, reset_view
-- Always call focus commands BEFORE explaining content
+- Available actions: highlight_finding, show_summary, show_stats, clear
+- ALWAYS call focus commands BEFORE explaining content
+- Finding IDs are in format: ${activeScanId}_CVE-XXXX-XXXXX
 
 You can now interact with me about these findings.`;
 
-          await sendMessage(contextMessage);
-        }, 2000);
-      }
+        console.log('Sending context to ElevenLabs:', { activeScanId, findingsCount: findings.length });
+        await sendMessage(contextMessage);
+      }, 2000);
     }
   };
 

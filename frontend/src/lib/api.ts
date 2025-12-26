@@ -43,6 +43,6 @@ export interface LatestScanResponse {
 }
 
 export const fetchLatestScan = async (): Promise<LatestScanResponse> => {
-  const { data } = await client.get<LatestScanResponse>('/voice/scan/latest');
+  const { data } = await client.get<LatestScanResponse>('/api/voice/scan/latest');
   return data;
 };
