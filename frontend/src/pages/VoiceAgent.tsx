@@ -29,6 +29,7 @@ export function VoiceAgent() {
   const [status, setStatus] = useState<ScanStatus | null>(null);
   const [eyeState, setEyeState] = useState<EyeState>('idle');
   const [currentFindingIndex, setCurrentFindingIndex] = useState(0);
+  const [highlightedFindingId, setHighlightedFindingId] = useState<string | null>(null);
   const { activeScanId } = useScan();
 
   // Core synchronization systems
@@ -58,8 +59,96 @@ export function VoiceAgent() {
     }
   }, [data]);
 
+  // Handle voice focus commands from ElevenLabs
+  const handleVoiceFocus = useCallback((message: any) => {
+    const { action, data } = message;
+    console.log('handleVoiceFocus called:', { action, data });
+
+    switch (action) {
+      case 'highlight_finding':
+        if (data.finding_id) {
+          console.log('Highlighting finding:', data.finding_id);
+
+          // Find the actual finding in status that matches this CVE ID
+          const matchingFinding = status?.findings?.find(f =>
+            f.id.endsWith(data.finding_id) || f.id === data.finding_id
+          );
+
+          if (matchingFinding) {
+            console.log('Found matching finding:', matchingFinding.id);
+
+            // Find the index of this finding in the findings array
+            const findingIndex = status?.findings?.findIndex(f => f.id === matchingFinding.id) ?? -1;
+
+            if (findingIndex !== -1) {
+              console.log('Navigating carousel to index:', findingIndex);
+              // Navigate carousel to show this finding
+              setCurrentFindingIndex(findingIndex);
+            }
+
+            // Set the highlight
+            setHighlightedFindingId(matchingFinding.id);
+
+            // Scroll to the finding after carousel updates
+            setTimeout(() => {
+              const element = document.getElementById(`finding-${matchingFinding.id}`);
+              console.log('Looking for element with ID:', `finding-${matchingFinding.id}`, 'Found:', element);
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              } else {
+                console.error('Element not found in DOM!');
+              }
+            }, 300);
+
+            // Auto-clear highlight after 10 seconds
+            setTimeout(() => {
+              setHighlightedFindingId(null);
+            }, 10000);
+          } else {
+            console.error('No matching finding found for:', data.finding_id);
+          }
+        } else {
+          console.error('No finding_id in data:', data);
+        }
+        break;
+
+      case 'show_critical':
+      case 'show_high':
+        // Filter findings by severity
+        // This will be implemented with the filter component
+        console.log(`Voice command: Show ${action.replace('show_', '')} findings`);
+        break;
+
+      case 'next_finding':
+        setCurrentFindingIndex((prev) => {
+          const findings = status?.findings ?? [];
+          return prev < findings.length - 1 ? prev + 1 : prev;
+        });
+        break;
+
+      case 'previous_finding':
+        setCurrentFindingIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        break;
+
+      case 'reset_view':
+        setHighlightedFindingId(null);
+        setCurrentFindingIndex(0);
+        break;
+    }
+  }, [status]);
+
   // Handle WebSocket messages
   const handleWebSocketMessage = useCallback((payload: any) => {
+    console.log('WebSocket message received:', payload);
+
+    // Check for voice focus commands FIRST
+    if (payload.type === 'voice_focus') {
+      console.log('Voice focus command:', payload.action, payload.data);
+      handleVoiceFocus(payload);
+      return; // Don't treat this as a scan status update
+    }
+
+    // Regular scan status update
     setStatus(payload);
 
     // Check for voice events
@@ -67,7 +156,7 @@ export function VoiceAgent() {
       const latestEvent = payload.voice_events[payload.voice_events.length - 1];
       syncManager.handleVoiceEvent(latestEvent);
     }
-  }, [syncManager]);
+  }, [syncManager, handleVoiceFocus]);
 
   useScanWebsocket({
     scanId: activeScanId ?? undefined,
@@ -252,91 +341,181 @@ The user is ready to discuss the scan results.`;
         {/* Enhanced Cinematic Scan Overview */}
         {activeScanId && findings.length > 0 && (
           <div className="mb-12 space-y-8">
-            {/* Scan Summary Dashboard */}
+            {/* Scan Summary Dashboard - Redesigned */}
             <motion.div
-              className="mx-auto max-w-5xl"
+              className="mx-auto max-w-6xl"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              {/* Header Section */}
-              <div className="mb-8 text-center">
-                <motion.div
-                  className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-2"
-                  animate={{ scale: [1, 1.02, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50" />
-                  <span className="text-sm font-bold uppercase tracking-wider text-emerald-400">
-                    Scan Complete
-                  </span>
-                </motion.div>
-
-                <h2 className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-4xl font-bold text-transparent">
-                  Security Analysis Report
-                </h2>
-                <p className="mt-2 text-gray-400">
-                  {status?.target && <span className="font-mono text-cyan-400">{status.target}</span>}
-                </p>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid gap-4 md:grid-cols-4">
-                {[
-                  {
-                    label: 'Total',
-                    value: findings.length,
-                    color: 'cyan',
-                    icon: '📊',
-                    bgFrom: 'from-cyan-500/10',
-                    bgTo: 'to-blue-500/10',
-                    borderColor: 'border-cyan-400/30',
-                  },
-                  {
-                    label: 'Critical',
-                    value: findings.filter(f => f.severity === 'critical').length,
-                    color: 'red',
-                    icon: '🔥',
-                    bgFrom: 'from-red-500/10',
-                    bgTo: 'to-rose-500/10',
-                    borderColor: 'border-red-400/30',
-                  },
-                  {
-                    label: 'High',
-                    value: findings.filter(f => f.severity === 'high').length,
-                    color: 'orange',
-                    icon: '⚠️',
-                    bgFrom: 'from-orange-500/10',
-                    bgTo: 'to-amber-500/10',
-                    borderColor: 'border-orange-400/30',
-                  },
-                  {
-                    label: 'Medium & Low',
-                    value: findings.filter(f => ['medium', 'low', 'informational'].includes(f.severity)).length,
-                    color: 'green',
-                    icon: '✓',
-                    bgFrom: 'from-emerald-500/10',
-                    bgTo: 'to-green-500/10',
-                    borderColor: 'border-emerald-400/30',
-                  },
-                ].map((stat, idx) => (
-                  <motion.div
-                    key={stat.label}
-                    className={`rounded-xl border bg-gradient-to-br p-5 backdrop-blur ${stat.bgFrom} ${stat.bgTo} ${stat.borderColor}`}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4, delay: idx * 0.1 }}
-                    whileHover={{ scale: 1.05, y: -2 }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                        {stat.label}
-                      </span>
-                      <span className="text-2xl">{stat.icon}</span>
+              {/* Enhanced Stats Card */}
+              <div className="overflow-hidden rounded-2xl border border-gray-700/50 bg-gradient-to-br from-slate-900/80 to-slate-950/80 p-8 shadow-2xl backdrop-blur">
+                {/* Scan Info Header */}
+                <div className="mb-8 border-b border-gray-700/50 pb-6">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-2xl font-bold text-white">
+                        {status?.target ? (
+                          status.target.includes('github.com') ? (
+                            status.target.split('/').slice(-1)[0]
+                          ) : (
+                            status.target
+                          )
+                        ) : (
+                          'Security Analysis'
+                        )}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-400">
+                        {status?.target && (
+                          <span className="font-mono text-cyan-400">{status.target}</span>
+                        )}
+                      </p>
+                      <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          Completed {status?.created_at ? new Date(status.created_at).toLocaleDateString() : ''}
+                        </span>
+                        {status?.created_at && (
+                          <span>
+                            {new Date(status.created_at).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-2 text-4xl font-bold text-white">{stat.value}</div>
-                  </motion.div>
-                ))}
+
+                    {/* Quick Actions */}
+                    <div className="flex gap-2">
+                      <button
+                        className="flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-400 transition-all hover:bg-cyan-500/20"
+                        title="Export report"
+                      >
+                        <span>↓</span>
+                        <span>Export</span>
+                      </button>
+                      <button
+                        className="flex items-center gap-2 rounded-lg border border-gray-600 bg-gray-800/50 px-4 py-2 text-sm font-medium text-gray-300 transition-all hover:bg-gray-700/50"
+                        title="Share link"
+                      >
+                        <span>🔗</span>
+                        <span>Share</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Severity Stats - Horizontal Layout */}
+                <div className="grid grid-cols-5 gap-4">
+                  {[
+                    {
+                      label: 'Critical',
+                      count: findings.filter(f => f.severity === 'critical').length,
+                      color: 'red',
+                      bgColor: 'bg-red-500/20',
+                      borderColor: 'border-red-400/30',
+                      textColor: 'text-red-400',
+                      dotColor: 'bg-red-400',
+                    },
+                    {
+                      label: 'High',
+                      count: findings.filter(f => f.severity === 'high').length,
+                      color: 'orange',
+                      bgColor: 'bg-orange-500/20',
+                      borderColor: 'border-orange-400/30',
+                      textColor: 'text-orange-400',
+                      dotColor: 'bg-orange-400',
+                    },
+                    {
+                      label: 'Medium',
+                      count: findings.filter(f => f.severity === 'medium').length,
+                      color: 'amber',
+                      bgColor: 'bg-amber-500/20',
+                      borderColor: 'border-amber-400/30',
+                      textColor: 'text-amber-400',
+                      dotColor: 'bg-amber-400',
+                    },
+                    {
+                      label: 'Low',
+                      count: findings.filter(f => f.severity === 'low').length,
+                      color: 'blue',
+                      bgColor: 'bg-blue-500/20',
+                      borderColor: 'border-blue-400/30',
+                      textColor: 'text-blue-400',
+                      dotColor: 'bg-blue-400',
+                    },
+                    {
+                      label: 'Info',
+                      count: findings.filter(f => f.severity === 'informational').length,
+                      color: 'gray',
+                      bgColor: 'bg-gray-500/20',
+                      borderColor: 'border-gray-400/30',
+                      textColor: 'text-gray-400',
+                      dotColor: 'bg-gray-400',
+                    },
+                  ].map((stat, idx) => (
+                    <motion.div
+                      key={stat.label}
+                      className="group cursor-pointer"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: idx * 0.05 }}
+                      whileHover={{ y: -2 }}
+                    >
+                      <div className={`rounded-xl border ${stat.borderColor} ${stat.bgColor} p-4 transition-all group-hover:shadow-lg`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-xs font-bold uppercase tracking-wide ${stat.textColor}`}>
+                            {stat.label}
+                          </span>
+                          <div className={`h-2 w-2 rounded-full ${stat.dotColor}`} />
+                        </div>
+                        <div className="text-3xl font-bold text-white">{stat.count}</div>
+
+                        {/* Mini progress bar */}
+                        <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-800">
+                          <motion.div
+                            className={`h-full ${stat.dotColor}`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${findings.length > 0 ? (stat.count / findings.length) * 100 : 0}%` }}
+                            transition={{ duration: 1, delay: idx * 0.1 }}
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Total Findings Summary */}
+                <div className="mt-6 rounded-lg bg-gray-800/30 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-400/30">
+                        <span className="text-lg">⚡</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-400">Total Findings</p>
+                        <p className="text-2xl font-bold text-white">{findings.length}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">Risk Level</p>
+                      <p className={`text-sm font-bold ${
+                        findings.some(f => f.severity === 'critical')
+                          ? 'text-red-400'
+                          : findings.some(f => f.severity === 'high')
+                          ? 'text-orange-400'
+                          : 'text-emerald-400'
+                      }`}>
+                        {findings.some(f => f.severity === 'critical')
+                          ? 'CRITICAL'
+                          : findings.some(f => f.severity === 'high')
+                          ? 'HIGH'
+                          : 'MODERATE'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </motion.div>
 
@@ -391,27 +570,54 @@ The user is ready to discuss the scan results.`;
 
                 {/* Finding Card with Animation */}
                 <motion.div
+                  id={`finding-${currentFinding.id}`}
                   key={currentFinding.id}
-                  className="relative overflow-hidden rounded-2xl border border-gray-700 bg-gradient-to-br from-slate-900/90 to-slate-950/90 shadow-2xl backdrop-blur"
+                  className={`relative overflow-hidden rounded-2xl border shadow-2xl backdrop-blur transition-all duration-500 ${
+                    highlightedFindingId === currentFinding.id
+                      ? 'border-red-400 bg-gradient-to-br from-red-900/30 to-slate-950/90 shadow-red-500/50'
+                      : 'border-gray-700 bg-gradient-to-br from-slate-900/90 to-slate-950/90'
+                  }`}
                   initial={{ opacity: 0, x: 50 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  animate={{
+                    opacity: 1,
+                    x: 0,
+                    scale: highlightedFindingId === currentFinding.id ? 1.02 : 1,
+                  }}
                   exit={{ opacity: 0, x: -50 }}
                   transition={{ duration: 0.4 }}
                 >
-                  {/* Severity accent bar */}
+                  {/* Highlight pulse effect */}
+                  {highlightedFindingId === currentFinding.id && (
+                    <motion.div
+                      className="absolute inset-0 rounded-2xl border-2 border-red-400"
+                      animate={{
+                        opacity: [0.3, 0.6, 0.3],
+                        scale: [1, 1.01, 1],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                    />
+                  )}
+
+                  {/* Thick left accent bar - signature visual element */}
                   <div
-                    className={`h-1 ${
+                    className={`absolute left-0 top-0 bottom-0 w-2 ${
                       currentFinding.severity === 'critical'
-                        ? 'bg-gradient-to-r from-red-500 to-rose-600'
+                        ? 'bg-gradient-to-b from-red-500 to-rose-600'
                         : currentFinding.severity === 'high'
-                        ? 'bg-gradient-to-r from-orange-500 to-amber-600'
+                        ? 'bg-gradient-to-b from-orange-500 to-amber-600'
                         : currentFinding.severity === 'medium'
-                        ? 'bg-gradient-to-r from-amber-500 to-yellow-600'
-                        : 'bg-gradient-to-r from-emerald-500 to-green-600'
+                        ? 'bg-gradient-to-b from-amber-500 to-yellow-600'
+                        : currentFinding.severity === 'low'
+                        ? 'bg-gradient-to-b from-blue-500 to-cyan-600'
+                        : 'bg-gradient-to-b from-gray-500 to-slate-600'
                     }`}
                   />
 
-                  <div className="p-8">
+                  <div className="p-8 pl-10">
                     {/* Header */}
                     <div className="mb-6 flex items-start justify-between">
                       <div className="flex items-center gap-3">
@@ -435,10 +641,17 @@ The user is ready to discuss the scan results.`;
                       </div>
                     </div>
 
-                    {/* Title */}
-                    <h3 className="mb-6 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-3xl font-bold leading-tight text-transparent">
-                      {currentFinding.title}
-                    </h3>
+                    {/* Title with CVE ID if available */}
+                    <div className="mb-6">
+                      <h3 className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-3xl font-bold leading-tight text-transparent">
+                        {currentFinding.title}
+                      </h3>
+                      {currentFinding.id.startsWith('CVE-') && (
+                        <p className="mt-2 font-mono text-sm text-gray-500">
+                          {currentFinding.id}
+                        </p>
+                      )}
+                    </div>
 
                     {/* Content Grid */}
                     <div className="space-y-6">
@@ -471,16 +684,34 @@ The user is ready to discuss the scan results.`;
                   </div>
                 </motion.div>
 
-                {/* Quick Actions */}
-                <div className="mt-6 flex items-center justify-center gap-4">
-                  <button className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2 text-sm font-semibold text-gray-300 transition-all hover:border-gray-600 hover:bg-gray-800">
+                {/* Quick Actions - Enhanced */}
+                <div className="mt-6 flex items-center justify-center gap-3">
+                  <motion.button
+                    className="flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-5 py-2.5 text-sm font-medium text-cyan-400 transition-all hover:bg-cyan-500/20"
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
                     <span>📋</span>
                     <span>Copy Details</span>
-                  </button>
-                  <button className="flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-400 transition-all hover:bg-cyan-500/20">
-                    <span>🔍</span>
-                    <span>View in Dashboard</span>
-                  </button>
+                  </motion.button>
+                  {currentFinding.id.startsWith('CVE-') && (
+                    <motion.button
+                      className="flex items-center gap-2 rounded-lg border border-blue-400/30 bg-blue-500/10 px-5 py-2.5 text-sm font-medium text-blue-400 transition-all hover:bg-blue-500/20"
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <span>🔍</span>
+                      <span>View CVE</span>
+                    </motion.button>
+                  )}
+                  <motion.button
+                    className="flex items-center gap-2 rounded-lg border border-gray-600 bg-gray-800/50 px-5 py-2.5 text-sm font-medium text-gray-300 transition-all hover:bg-gray-700/50"
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <span>↓</span>
+                    <span>Export</span>
+                  </motion.button>
                 </div>
               </motion.div>
             )}

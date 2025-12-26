@@ -152,3 +152,31 @@ class VoiceRequest(BaseModel):
 class VoiceResponse(BaseModel):
     success: bool
     relay: Dict[str, Any] | None = None
+
+
+class VoiceFocusAction(str, Enum):
+    """Actions that the voice agent can trigger on the frontend."""
+    HIGHLIGHT_FINDING = "highlight_finding"
+    SHOW_SUMMARY = "show_summary"
+    SHOW_STATS = "show_stats"
+    SHOW_CRITICAL = "show_critical"
+    SHOW_HIGH = "show_high"
+    FILTER_BY_SEVERITY = "filter_by_severity"
+    NEXT_FINDING = "next_finding"
+    PREVIOUS_FINDING = "previous_finding"
+    RESET_VIEW = "reset_view"
+    CLEAR = "clear"
+
+
+class VoiceFocusRequest(BaseModel):
+    """Request from ElevenLabs to control frontend focus."""
+    scan_id: str
+    action: VoiceFocusAction
+    data: Dict[str, Any] = Field(default_factory=dict)  # finding_id, severity, etc.
+
+
+class VoiceFocusMessage(BaseModel):
+    """WebSocket message to control frontend focus."""
+    type: str = "voice_focus"
+    action: VoiceFocusAction
+    data: Dict[str, Any] = Field(default_factory=dict)
