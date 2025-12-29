@@ -170,7 +170,7 @@ class VoiceFocusAction(str, Enum):
 
 class VoiceFocusRequest(BaseModel):
     """Request from ElevenLabs to control frontend focus."""
-    scan_id: str
+    scan_id: str | None = None  # Optional - will use latest scan if not provided
     action: VoiceFocusAction
     data: Dict[str, Any] = Field(default_factory=dict)  # finding_id, severity, etc.
 

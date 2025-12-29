@@ -7,9 +7,14 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     environment: str = Field(default="development", validation_alias="ENVIRONMENT")
-    llm_provider: str = Field(default="gemini", validation_alias="LLM_PROVIDER")
-    llm_model: str = Field(default="gemini-1.5-pro", validation_alias="LLM_MODEL")
+    llm_provider: str = Field(default="groq", validation_alias="LLM_PROVIDER")
+    llm_model: str = Field(default="llama-3.3-70b-versatile", validation_alias="LLM_MODEL")
+
+    # LLM API Keys
+    groq_api_key: str | None = Field(default=None, validation_alias="GROQ_API_KEY")
     gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
+    openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
+
     elevenlabs_api_key: str | None = Field(
         default=None, validation_alias="ELEVENLABS_API_KEY"
     )

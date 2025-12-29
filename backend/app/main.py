@@ -16,6 +16,7 @@ from app.web.websocket_manager import WebsocketManager
 from app.services.voice import VoiceNotifier
 from app.services.voice_parser import VoiceInputParser
 from app.services.llm_client import create_llm_client
+from app.services.finding_explainer import FindingExplainer
 
 ws_manager = WebsocketManager()
 orchestrator = None  # Will be initialized on startup
@@ -132,11 +133,14 @@ async def list_all_scans(orch: Orchestrator = Depends(get_orchestrator)) -> dict
 
 @app.websocket("/ws/{scan_id}")
 async def scan_updates_ws(websocket: WebSocket, scan_id: str) -> None:
+    logger.info(f"WebSocket client connecting for scan_id: {scan_id}")
     await ws_manager.connect(scan_id, websocket)
+    logger.info(f"WebSocket client connected for scan_id: {scan_id}")
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
+        logger.info(f"WebSocket client disconnected for scan_id: {scan_id}")
         await ws_manager.disconnect(scan_id, websocket)
 
 
@@ -184,6 +188,7 @@ async def end_voice_conversation(
 @app.post("/api/voice/focus")
 async def voice_focus_command(
     request: Request,
+    orch: Orchestrator = Depends(get_orchestrator),
 ) -> dict:
     """
     Endpoint for ElevenLabs voice agent to control frontend focus.
@@ -216,16 +221,30 @@ async def voice_focus_command(
             logger.error(f"Raw body was: {body}")
             raise HTTPException(status_code=422, detail=f"Invalid request format: {str(validation_error)}")
 
+        # If scan_id not provided, use the latest scan
+        scan_id = focus_request.scan_id
+        if not scan_id:
+            scans = orch.list_scans()
+            if not scans:
+                raise HTTPException(status_code=404, detail="No scans found")
+            # Get the most recent scan by sorting by created_at
+            sorted_scans = sorted(scans.items(), key=lambda x: x[1].created_at, reverse=True)
+            scan_id = sorted_scans[0][0]  # Get scan_id from (scan_id, ScanStatus) tuple
+            logger.info(f"No scan_id provided, using latest scan: {scan_id}")
+
         # Broadcast focus command to all connected clients for this scan
-        await ws_manager.broadcast(focus_request.scan_id, {
+        message = {
             "type": "voice_focus",
             "action": focus_request.action.value,
             "data": focus_request.data,
-        })
+        }
+        logger.info(f"Broadcasting voice focus to scan {scan_id}: {message}")
+        await ws_manager.broadcast(scan_id, message)
+        logger.info(f"Broadcast complete for scan {scan_id}")
 
         return {
             "status": "success",
-            "scan_id": focus_request.scan_id,
+            "scan_id": scan_id,
             "action": focus_request.action.value,
         }
     except HTTPException:
@@ -403,7 +422,8 @@ async def get_latest_scan_findings_for_voice(
     """
     Get detailed findings from the most recent scan for voice agent.
     Optionally filter by severity (critical, high, medium, low, informational).
-    This endpoint doesn't require a scan_id - it automatically uses the latest scan.
+    Returns enriched findings with plain-language explanations, risk assessments,
+    and step-by-step remediation instructions for voice-friendly delivery.
     """
     # Get all scans (both in-memory and persisted) using the orchestrator's list_scans method
     all_scans = orch.list_scans()
@@ -422,24 +442,48 @@ async def get_latest_scan_findings_for_voice(
     if severity:
         findings = [f for f in findings if f.severity.value == severity.lower()]
 
-    findings_data = [
-        {
-            "id": f.id,
-            "title": f.title,
-            "severity": f.severity.value,
-            "description": f.description,
-            "remediation": f.remediation,
-            "agent": f.source_agent.value,
-        }
-        for f in findings[:10]  # Limit to 10 for voice delivery
-    ]
+    # Enrich findings with voice-friendly explanations
+    settings = get_settings()
+    llm_client = create_llm_client(settings)
+    explainer = FindingExplainer(llm_client)
+
+    enriched_findings = []
+    for finding in findings[:10]:  # Limit to 10 for voice delivery
+        try:
+            enriched = await explainer.enrich_finding(finding)
+            enriched_findings.append(enriched)
+        except Exception as e:
+            logger.error(f"Failed to enrich finding {finding.id}: {e}")
+            # Fallback to basic format
+            enriched_findings.append({
+                "finding_id": finding.id,
+                "title": finding.title,
+                "severity": finding.severity.value,
+                "plain_language_summary": finding.description[:200],
+                "risk_explanation": "Risk assessment requires manual review",
+                "remediation_steps": [finding.remediation],
+                "technical_description": finding.description,
+                "remediation": finding.remediation,
+                "references": finding.references,
+                "source_agent": finding.source_agent.value,
+            })
+
+    # Generate conversation guidance
+    severity_label = severity.upper() if severity else "total"
+    conversation_guidance = {
+        "suggested_intro": f"I have identified {len(findings)} {severity_label} severity issues",
+        "should_ask_permission": len(findings) > 1,
+        "suggested_question": "Would you like me to walk through each finding in detail?" if len(findings) > 1 else None,
+    }
 
     return {
         "status": "success",
         "scan_id": status.scan_id,
+        "target": status.target,
         "total_count": len(status.findings),
         "filtered_count": len(findings),
-        "findings": findings_data,
+        "findings": enriched_findings,
+        "conversation_guidance": conversation_guidance,
     }
 
 
@@ -528,8 +572,10 @@ async def get_scan_findings_for_voice(
     orch: Orchestrator = Depends(get_orchestrator),
 ) -> dict:
     """
-    Get detailed findings for voice agent.
+    Get detailed findings for voice agent with enriched explanations.
     Optionally filter by severity (critical, high, medium, low, informational).
+    Returns findings with plain-language summaries, risk explanations,
+    and step-by-step remediation for voice-friendly delivery.
     """
     status = orch.get_status(scan_id)
     if not status:
@@ -542,24 +588,48 @@ async def get_scan_findings_for_voice(
     if severity:
         findings = [f for f in findings if f.severity.value == severity.lower()]
 
-    findings_data = [
-        {
-            "id": f.id,
-            "title": f.title,
-            "severity": f.severity.value,
-            "description": f.description,
-            "remediation": f.remediation,
-            "agent": f.source_agent.value,
-        }
-        for f in findings[:10]  # Limit to 10 for voice delivery
-    ]
+    # Enrich findings with voice-friendly explanations
+    settings = get_settings()
+    llm_client = create_llm_client(settings)
+    explainer = FindingExplainer(llm_client)
+
+    enriched_findings = []
+    for finding in findings[:10]:  # Limit to 10 for voice delivery
+        try:
+            enriched = await explainer.enrich_finding(finding)
+            enriched_findings.append(enriched)
+        except Exception as e:
+            logger.error(f"Failed to enrich finding {finding.id}: {e}")
+            # Fallback to basic format
+            enriched_findings.append({
+                "finding_id": finding.id,
+                "title": finding.title,
+                "severity": finding.severity.value,
+                "plain_language_summary": finding.description[:200],
+                "risk_explanation": "Risk assessment requires manual review",
+                "remediation_steps": [finding.remediation],
+                "technical_description": finding.description,
+                "remediation": finding.remediation,
+                "references": finding.references,
+                "source_agent": finding.source_agent.value,
+            })
+
+    # Generate conversation guidance
+    severity_label = severity.upper() if severity else "total"
+    conversation_guidance = {
+        "suggested_intro": f"I have identified {len(findings)} {severity_label} severity issues",
+        "should_ask_permission": len(findings) > 1,
+        "suggested_question": "Would you like me to walk through each finding in detail?" if len(findings) > 1 else None,
+    }
 
     return {
         "status": "success",
         "scan_id": scan_id,
+        "target": status.target,
         "total_count": len(status.findings),
         "filtered_count": len(findings),
-        "findings": findings_data,
+        "findings": enriched_findings,
+        "conversation_guidance": conversation_guidance,
     }
 
 

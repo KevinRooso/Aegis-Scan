@@ -76,15 +76,29 @@ Examples:
                 max_tokens=500,  # Enough for full JSON response
             )
 
+            # Check for empty response
+            if not response or not response.strip():
+                logger.error("Empty response from LLM during voice parsing")
+                raise ValueError(
+                    "I couldn't process that request. Please try again or provide "
+                    "more specific details about what you'd like to scan."
+                )
+
             # Parse JSON response
             params = self._parse_json_response(response)
 
             # Validate and create ScanRequest
             return self._create_scan_request(params, message)
 
+        except ValueError:
+            # Re-raise ValueError with user-friendly message
+            raise
         except Exception as exc:
             logger.error(f"Voice input parsing failed: {exc}")
-            raise ValueError(f"Could not parse scan request: {str(exc)}")
+            raise ValueError(
+                "I couldn't understand that request. Please specify a GitHub repository "
+                "URL or web URL to scan."
+            )
 
     def _parse_json_response(self, response: str) -> dict:
         """Extract and parse JSON from LLM response."""
@@ -92,6 +106,9 @@ Examples:
         try:
             # Clean response
             response = response.strip()
+
+            if not response:
+                raise ValueError("Empty response from LLM")
 
             # Remove markdown code blocks if present
             if response.startswith("```"):
@@ -106,17 +123,23 @@ Examples:
                 if end == 0:  # No closing brace found
                     raise ValueError("No closing brace found in LLM response")
                 json_str = response[start:end]
+
+                if not json_str or json_str == "{}":
+                    raise ValueError("Empty or invalid JSON object")
+
                 logger.debug(f"Extracted JSON string: {json_str}")
                 return json.loads(json_str)
             else:
                 raise ValueError("No JSON found in LLM response")
 
         except json.JSONDecodeError as exc:
-            logger.error(f"JSON decode error: {exc}, json_str='{json_str[:200]}'")
+            logger.error(f"JSON decode error: {exc}, json_str='{json_str[:200] if json_str else 'EMPTY'}'")
+            raise ValueError("Failed to parse LLM response as valid JSON")
+        except ValueError:
             raise
         except Exception as exc:
-            logger.error(f"Parse error: {exc}, response_preview='{response[:200]}'")
-            raise
+            logger.error(f"Parse error: {exc}, response_preview='{response[:200] if response else 'EMPTY'}'")
+            raise ValueError(f"Failed to process LLM response: {str(exc)}")
 
     def _create_scan_request(self, params: dict, original_message: str) -> ScanRequest:
         """

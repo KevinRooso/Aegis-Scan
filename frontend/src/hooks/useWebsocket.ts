@@ -14,16 +14,22 @@ export function useScanWebsocket({ scanId, onMessage }: UseWebsocketOptions): vo
 
   useEffect(() => {
     if (!scanId) {
+      console.log('[WebSocket] No scanId provided, skipping connection');
       return;
     }
-    const ws = new WebSocket(
-      `${backendBase.replace(/^http/, "ws").replace(/\/$/, "")}/ws/${scanId}`,
-    );
+    const wsUrl = `${backendBase.replace(/^http/, "ws").replace(/\/$/, "")}/ws/${scanId}`;
+    console.log(`[WebSocket] Connecting to: ${wsUrl}`);
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log(`[WebSocket] Connected successfully to scan ${scanId}`);
+    };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('[WebSocket] Received message:', data);
         if (onMessage) {
           // Pass the entire message - handler will decide what to do with it
           // For scan status updates, data will have a 'status' field
@@ -36,10 +42,15 @@ export function useScanWebsocket({ scanId, onMessage }: UseWebsocketOptions): vo
     };
 
     ws.onerror = (event) => {
-      console.error("Websocket error", event);
+      console.error(`[WebSocket] Error on scan ${scanId}:`, event);
+    };
+
+    ws.onclose = () => {
+      console.log(`[WebSocket] Connection closed for scan ${scanId}`);
     };
 
     return () => {
+      console.log(`[WebSocket] Cleaning up connection for scan ${scanId}`);
       ws.close();
       wsRef.current = null;
     };

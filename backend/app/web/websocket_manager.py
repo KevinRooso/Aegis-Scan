@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Dict, List
 
 from fastapi import WebSocket
+
+logger = logging.getLogger(__name__)
 
 
 class WebsocketManager:
@@ -27,8 +30,13 @@ class WebsocketManager:
     async def broadcast(self, scan_id: str, payload: dict) -> None:
         async with self._lock:
             conns = list(self._connections.get(scan_id, []))
+        logger.info(f"Broadcasting to {len(conns)} WebSocket clients for scan {scan_id}: {payload.get('type', 'unknown')}")
         for conn in conns:
-            await conn.send_json(payload)
+            try:
+                await conn.send_json(payload)
+                logger.debug(f"Sent message to WebSocket client")
+            except Exception as e:
+                logger.error(f"Failed to send WebSocket message: {e}")
 
     async def broadcast_voice_event(self, scan_id: str, event: Any) -> None:
         """

@@ -26,6 +26,8 @@ export function VoiceAgentCinematic() {
   const [eyeState, setEyeState] = useState<EyeState>('idle');
   const [currentContent, setCurrentContent] = useState<ContentState>({ type: null });
   const [isHalMinimized, setIsHalMinimized] = useState(false);
+  const [currentFindingIndex, setCurrentFindingIndex] = useState<number>(0);
+  const [filteredFindings, setFilteredFindings] = useState<Finding[]>([]);
   const { activeScanId } = useScan();
 
   // ElevenLabs voice integration
@@ -66,6 +68,15 @@ export function VoiceAgentCinematic() {
 
           if (finding) {
             console.log('Showing finding card:', finding.id);
+            // Update filtered findings to all findings if not already set
+            if (filteredFindings.length === 0) {
+              setFilteredFindings(status.findings);
+            }
+            // Find and set the index of this finding
+            const index = status.findings.findIndex(f => f.id === finding.id);
+            if (index >= 0) {
+              setCurrentFindingIndex(index);
+            }
             setCurrentContent({ type: 'finding', data: finding });
             // Minimize HAL eye when showing content
             setIsHalMinimized(true);
@@ -82,8 +93,6 @@ export function VoiceAgentCinematic() {
         break;
 
       case 'show_stats':
-      case 'show_critical':
-      case 'show_high':
         if (status?.findings) {
           const findings = status.findings;
           const stats = {
@@ -94,8 +103,77 @@ export function VoiceAgentCinematic() {
             info: findings.filter(f => f.severity === 'informational').length,
           };
           console.log('Showing stats card');
+          // Set filtered findings to all findings for navigation
+          setFilteredFindings(findings);
+          setCurrentFindingIndex(0);
           setCurrentContent({ type: 'stats', data: stats });
           setIsHalMinimized(true);
+        }
+        break;
+
+      case 'show_critical':
+        if (status?.findings) {
+          const findings = status.findings;
+          const criticalFindings = findings.filter(f => f.severity === 'critical');
+          const stats = {
+            critical: criticalFindings.length,
+            high: findings.filter(f => f.severity === 'high').length,
+            medium: findings.filter(f => f.severity === 'medium').length,
+            low: findings.filter(f => f.severity === 'low').length,
+            info: findings.filter(f => f.severity === 'informational').length,
+          };
+          console.log('Showing critical findings stats');
+          // Set filtered findings to only critical findings
+          setFilteredFindings(criticalFindings);
+          setCurrentFindingIndex(0);
+          setCurrentContent({ type: 'stats', data: stats });
+          setIsHalMinimized(true);
+        }
+        break;
+
+      case 'show_high':
+        if (status?.findings) {
+          const findings = status.findings;
+          const highFindings = findings.filter(f => f.severity === 'high');
+          const stats = {
+            critical: findings.filter(f => f.severity === 'critical').length,
+            high: highFindings.length,
+            medium: findings.filter(f => f.severity === 'medium').length,
+            low: findings.filter(f => f.severity === 'low').length,
+            info: findings.filter(f => f.severity === 'informational').length,
+          };
+          console.log('Showing high findings stats');
+          // Set filtered findings to only high findings
+          setFilteredFindings(highFindings);
+          setCurrentFindingIndex(0);
+          setCurrentContent({ type: 'stats', data: stats });
+          setIsHalMinimized(true);
+        }
+        break;
+
+      case 'next_finding':
+        if (filteredFindings.length > 0) {
+          const nextIndex = (currentFindingIndex + 1) % filteredFindings.length;
+          console.log(`Navigating to next finding: ${nextIndex}/${filteredFindings.length - 1}`);
+          setCurrentFindingIndex(nextIndex);
+          setCurrentContent({ type: 'finding', data: filteredFindings[nextIndex] });
+          setIsHalMinimized(true);
+        } else {
+          console.warn('No filtered findings available for navigation');
+        }
+        break;
+
+      case 'previous_finding':
+        if (filteredFindings.length > 0) {
+          const prevIndex = currentFindingIndex === 0
+            ? filteredFindings.length - 1
+            : currentFindingIndex - 1;
+          console.log(`Navigating to previous finding: ${prevIndex}/${filteredFindings.length - 1}`);
+          setCurrentFindingIndex(prevIndex);
+          setCurrentContent({ type: 'finding', data: filteredFindings[prevIndex] });
+          setIsHalMinimized(true);
+        } else {
+          console.warn('No filtered findings available for navigation');
         }
         break;
 
@@ -104,12 +182,14 @@ export function VoiceAgentCinematic() {
         console.log('Clearing content');
         setCurrentContent({ type: null });
         setIsHalMinimized(false);
+        setFilteredFindings([]);
+        setCurrentFindingIndex(0);
         break;
 
       default:
         console.log('Unknown action:', action);
     }
-  }, [status]);
+  }, [status, filteredFindings, currentFindingIndex]);
 
   // Handle WebSocket messages
   const handleWebSocketMessage = useCallback((payload: any) => {
