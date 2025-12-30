@@ -26,6 +26,7 @@ export function VoiceAgentCinematic() {
   const [eyeState, setEyeState] = useState<EyeState>('idle');
   const [currentContent, setCurrentContent] = useState<ContentState>({ type: null });
   const [isHalMinimized, setIsHalMinimized] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { activeScanId } = useScan();
 
   // ElevenLabs voice integration
@@ -53,9 +54,43 @@ export function VoiceAgentCinematic() {
 
   // Handle voice focus commands from ElevenLabs
   const handleVoiceFocus = useCallback((message: any) => {
-    const { action, data } = message;
-    console.log('Voice focus command:', action, data);
+    const { action, data, card_type, card_data } = message;
+    console.log('[VOICE FOCUS] Received:', { action, card_type, has_card_data: !!card_data });
 
+    // If backend provides pre-rendered card data, use it directly
+    if (card_type && card_data) {
+      console.log(`[VOICE FOCUS] Using backend card: ${card_type}`);
+
+      switch (card_type) {
+        case 'finding':
+          setCurrentContent({ type: 'finding', data: card_data.finding });
+          setIsHalMinimized(true);
+          break;
+
+        case 'summary':
+          setCurrentContent({ type: 'summary', data: card_data.status });
+          setIsHalMinimized(true);
+          break;
+
+        case 'stats':
+          // Extract stats from card_data
+          const findings = card_data.status?.findings || [];
+          const stats = {
+            critical: findings.filter((f: any) => f.severity === 'critical').length,
+            high: findings.filter((f: any) => f.severity === 'high').length,
+            medium: findings.filter((f: any) => f.severity === 'medium').length,
+            low: findings.filter((f: any) => f.severity === 'low').length,
+            info: findings.filter((f: any) => f.severity === 'informational').length,
+          };
+          console.log('[VOICE FOCUS] Stats:', stats);
+          setCurrentContent({ type: 'stats', data: stats });
+          setIsHalMinimized(true);
+          break;
+      }
+      return;
+    }
+
+    // Fallback to old logic if no card_data provided
     switch (action) {
       case 'highlight_finding':
         if (data.finding_id && status?.findings) {
@@ -67,7 +102,6 @@ export function VoiceAgentCinematic() {
           if (finding) {
             console.log('Showing finding card:', finding.id);
             setCurrentContent({ type: 'finding', data: finding });
-            // Minimize HAL eye when showing content
             setIsHalMinimized(true);
           }
         }
@@ -135,10 +169,23 @@ export function VoiceAgentCinematic() {
   useEffect(() => {
     if (isSpeaking) {
       setEyeState('speaking');
+      setIsProcessing(false); // Clear processing when speaking starts
     } else if (isConnected) {
       setEyeState('listening');
     } else {
       setEyeState('idle');
+    }
+  }, [isConnected, isSpeaking]);
+
+  // Show processing indicator when agent is thinking (connected but not speaking)
+  useEffect(() => {
+    if (isConnected && !isSpeaking) {
+      const timer = setTimeout(() => {
+        setIsProcessing(true);
+      }, 2000); // Show after 2 seconds of silence
+      return () => clearTimeout(timer);
+    } else {
+      setIsProcessing(false);
     }
   }, [isConnected, isSpeaking]);
 
@@ -291,10 +338,64 @@ You can now interact with me about these findings.`;
               className="absolute -top-14 left-1/2 -translate-x-1/2 whitespace-nowrap"
             >
               <div className="flex items-center gap-2 rounded-full border border-white/20 bg-black/90 px-3 py-1.5 backdrop-blur-xl shadow-lg">
-                <div className={`h-2 w-2 rounded-full ${isSpeaking ? 'bg-red-500 animate-pulse' : isConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
+                <div className={`h-2 w-2 rounded-full ${
+                  isSpeaking ? 'bg-red-500 animate-pulse' :
+                  isProcessing ? 'bg-yellow-500 animate-pulse' :
+                  isConnected ? 'bg-green-500' :
+                  'bg-gray-500'
+                }`} />
                 <span className="text-xs font-medium text-white">
-                  {isSpeaking ? 'Speaking' : isConnected ? 'Listening' : 'Offline'}
+                  {isSpeaking ? 'Speaking' :
+                   isProcessing ? 'Processing...' :
+                   isConnected ? 'Listening' :
+                   'Offline'}
                 </span>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Processing indicator when not minimized - HAL 9000 style */}
+          {!isHalMinimized && isProcessing && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-32"
+            >
+              <div className="flex flex-col items-center gap-4">
+                {/* Scanning line effect */}
+                <div className="relative">
+                  <motion.div
+                    className="h-0.5 w-64 bg-gradient-to-r from-transparent via-red-500 to-transparent"
+                    animate={{
+                      x: [-256, 256],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  />
+                  <div className="absolute inset-0 h-0.5 w-64 bg-red-500/20" />
+                </div>
+
+                {/* Status text */}
+                <motion.div
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  className="text-center"
+                >
+                  <div className="text-sm font-mono text-red-500/80 tracking-widest uppercase">
+                    Analyzing Security Data
+                  </div>
+                  <div className="mt-1 text-xs font-mono text-red-500/50">
+                    Processing vulnerabilities...
+                  </div>
+                </motion.div>
               </div>
             </motion.div>
           )}

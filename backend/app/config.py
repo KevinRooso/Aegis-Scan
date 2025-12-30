@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     llm_provider: str = Field(default="gemini", validation_alias="LLM_PROVIDER")
     llm_model: str = Field(default="gemini-1.5-pro", validation_alias="LLM_MODEL")
     gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
+    groq_api_key: str | None = Field(default=None, validation_alias="GROQ_API_KEY")
+    groq_model: str = Field(default="openai/gpt-oss-120b", validation_alias="GROQ_MODEL")
     elevenlabs_api_key: str | None = Field(
         default=None, validation_alias="ELEVENLABS_API_KEY"
     )

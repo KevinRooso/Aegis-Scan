@@ -24,12 +24,16 @@ import { ScanForm } from '../components/ScanForm';
 import { AgentProgressList } from '../components/AgentProgressList';
 import { FindingsTable } from '../components/FindingsTable';
 import { LogsPanel } from '../components/LogsPanel';
+import { PresentationCard } from '../components/PresentationCard';
 
 export function VoiceAgent() {
   const [status, setStatus] = useState<ScanStatus | null>(null);
   const [eyeState, setEyeState] = useState<EyeState>('idle');
   const [currentFindingIndex, setCurrentFindingIndex] = useState(0);
   const [highlightedFindingId, setHighlightedFindingId] = useState<string | null>(null);
+  const [showPresentationCard, setShowPresentationCard] = useState(false);
+  const [presentationCardType, setPresentationCardType] = useState<'finding' | 'summary' | 'stats' | null>(null);
+  const [presentationCardData, setPresentationCardData] = useState<any>(null);
   const { activeScanId } = useScan();
 
   // Core synchronization systems
@@ -61,8 +65,20 @@ export function VoiceAgent() {
 
   // Handle voice focus commands from ElevenLabs
   const handleVoiceFocus = useCallback((message: any) => {
-    const { action, data } = message;
-    console.log('handleVoiceFocus called:', { action, data });
+    const { action, data, card_type, card_data } = message;
+    console.log('handleVoiceFocus called:', { action, data, card_type, card_data });
+
+    // Handle presentation card display
+    if (card_type && card_data) {
+      setPresentationCardType(card_type);
+      setPresentationCardData(card_data);
+      setShowPresentationCard(true);
+
+      // Auto-hide card after 15 seconds
+      setTimeout(() => {
+        setShowPresentationCard(false);
+      }, 15000);
+    }
 
     switch (action) {
       case 'highlight_finding':
@@ -112,10 +128,15 @@ export function VoiceAgent() {
         }
         break;
 
+      case 'show_stats':
+      case 'show_summary':
+        // Cards are already shown via card_type/card_data above
+        console.log(`Voice command: Showing ${card_type} card`);
+        break;
+
       case 'show_critical':
       case 'show_high':
         // Filter findings by severity
-        // This will be implemented with the filter component
         console.log(`Voice command: Show ${action.replace('show_', '')} findings`);
         break;
 
@@ -133,6 +154,11 @@ export function VoiceAgent() {
       case 'reset_view':
         setHighlightedFindingId(null);
         setCurrentFindingIndex(0);
+        setShowPresentationCard(false);
+        break;
+
+      case 'clear':
+        setShowPresentationCard(false);
         break;
     }
   }, [status]);
@@ -732,6 +758,46 @@ The user is ready to discuss the scan results.`;
         >
           <FindingDetailContent finding={focusController.focusedItem.data} />
         </DetailPanel>
+      )}
+
+      {/* Presentation Card - Voice-triggered cinematic overlay */}
+      {showPresentationCard && presentationCardType && presentationCardData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3 }}
+          >
+            {presentationCardType === 'finding' && presentationCardData.finding && (
+              <PresentationCard
+                type="finding"
+                finding={presentationCardData.finding}
+                onClose={() => setShowPresentationCard(false)}
+              />
+            )}
+            {presentationCardType === 'stats' && presentationCardData.status && (
+              <PresentationCard
+                type="stats"
+                stats={{
+                  critical: presentationCardData.status.findings?.filter((f: any) => f.severity === 'critical').length || 0,
+                  high: presentationCardData.status.findings?.filter((f: any) => f.severity === 'high').length || 0,
+                  medium: presentationCardData.status.findings?.filter((f: any) => f.severity === 'medium').length || 0,
+                  low: presentationCardData.status.findings?.filter((f: any) => f.severity === 'low').length || 0,
+                  info: presentationCardData.status.findings?.filter((f: any) => f.severity === 'informational').length || 0,
+                }}
+                onClose={() => setShowPresentationCard(false)}
+              />
+            )}
+            {presentationCardType === 'summary' && presentationCardData.status && (
+              <PresentationCard
+                type="summary"
+                status={presentationCardData.status}
+                onClose={() => setShowPresentationCard(false)}
+              />
+            )}
+          </motion.div>
+        </div>
       )}
     </div>
   );
