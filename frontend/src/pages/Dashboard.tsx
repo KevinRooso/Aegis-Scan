@@ -186,18 +186,18 @@ export function Dashboard() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  relative flex-1 rounded-lg px-4 py-3 text-sm font-semibold transition-all
+                  relative flex-1 rounded-lg border-2 px-4 py-3 text-sm font-semibold transition-all
                   ${
                     activeTab === tab.id
-                      ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 shadow-lg shadow-cyan-500/10"
-                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-300"
+                      ? "border-cyan-400/60 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 shadow-lg shadow-cyan-500/20"
+                      : "border-transparent text-slate-400 hover:border-slate-600/50 hover:bg-slate-800/50 hover:text-slate-300"
                   }
                 `}
               >
                 {activeTab === tab.id && (
                   <motion.div
                     layoutId="activeTab"
-                    className="absolute inset-0 rounded-lg border border-cyan-400/30"
+                    className="absolute inset-0 rounded-lg border-2 border-cyan-400/40"
                     transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                   />
                 )}

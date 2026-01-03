@@ -129,21 +129,21 @@ export function ReportActions({ scanId }: Props) {
             <button
               onClick={handleFetch}
               disabled={!scanId || panelStatus === "loading"}
-              className="rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-full border-2 border-white/20 bg-white/90 px-5 py-2 text-sm font-semibold text-slate-900 shadow-lg transition hover:border-white hover:bg-white hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
             >
               {panelStatus === "loading" ? "Syncing…" : "Generate latest PDF"}
             </button>
             <button
               onClick={() => handleDownload(downloadTargets.pdf)}
               disabled={!downloadTargets.pdf}
-              className="rounded-full border border-white/30 px-5 py-2 text-sm font-semibold text-white transition hover:border-white disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-full border-2 border-cyan-400/50 bg-cyan-500/10 px-5 py-2 text-sm font-semibold text-cyan-100 shadow-md transition hover:border-cyan-400 hover:bg-cyan-500/20 hover:shadow-lg disabled:cursor-not-allowed disabled:border-slate-600 disabled:bg-slate-800/20 disabled:text-slate-500 disabled:opacity-50"
             >
               Download PDF
             </button>
             <button
               onClick={() => handleDownload(downloadTargets.markdown)}
               disabled={!downloadTargets.markdown}
-              className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-slate-200 hover:border-white/50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-full border-2 border-blue-400/40 bg-blue-500/10 px-5 py-2 text-sm font-semibold text-blue-100 shadow-md transition hover:border-blue-400 hover:bg-blue-500/20 hover:shadow-lg disabled:cursor-not-allowed disabled:border-slate-600 disabled:bg-slate-800/20 disabled:text-slate-500 disabled:opacity-50"
             >
               Download Markdown
             </button>
