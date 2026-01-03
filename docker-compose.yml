@@ -18,6 +18,20 @@ services:
     ports:
       - "8000:8000"
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE=http://localhost:8000
+        - VITE_BACKEND_URL=http://localhost:8000
+        - VITE_ELEVENLABS_AGENT_ID=agent_2401kcfdpme0e11t5r973h462ya8
+    container_name: aegisscan-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
   cli:
     build:
       context: .

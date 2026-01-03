@@ -17,3 +17,4 @@ venv
 .claude
 .cursor
 .pnpm-store
+.env.docker
