@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { getScanStatus, type ScanStatus } from '../api';
 
 interface ScanListItem {
   scan_id: string;
@@ -150,7 +149,7 @@ export function History() {
           </div>
           <button
             onClick={fetchScans}
-            className="rounded-lg border border-slate-700 bg-slate-900/50 px-4 py-2 text-slate-300 transition-colors hover:border-cyan-400 hover:text-cyan-400"
+            className="rounded-lg border-2 border-slate-600/60 bg-slate-900/50 px-4 py-2 text-slate-300 shadow-md transition-all hover:border-cyan-400 hover:bg-slate-800/70 hover:text-cyan-300 hover:shadow-lg"
           >
             🔄 Refresh
           </button>
@@ -278,9 +277,9 @@ export function History() {
                       <td className="px-6 py-4">
                         <button
                           onClick={() => viewScanDetails(scan.scan_id)}
-                          className="rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-300 transition-all hover:border-cyan-400 hover:bg-cyan-500/20"
+                          className="rounded-lg border-2 border-cyan-400/50 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-300 shadow-md transition-all hover:border-cyan-400 hover:bg-cyan-500/20 hover:shadow-lg hover:shadow-cyan-500/20"
                         >
-                          View Details
+                          View Details →
                         </button>
                       </td>
                     </motion.tr>
