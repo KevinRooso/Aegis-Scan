@@ -4,20 +4,28 @@
  * Organized view with tabs for Overview, Findings, Graphs, and Logs.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense, lazy } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "react-router-dom";
 
-import { AgentProgressList } from "../components/AgentProgressList";
-import { FindingsTable } from "../components/FindingsTable";
-import { FindingsVisualizations } from "../components/FindingsVisualizations";
+import { AgentCommandCenter } from "../components/AgentCommandCenter";
+import { FindingsGrid } from "../components/FindingsGrid";
+import AnimatedStatsCard from "../components/AnimatedStatsCard";
 import { LogsPanel } from "../components/LogsPanel";
 import { ReportActions } from "../components/ReportActions";
 import { ScanForm } from "../components/ScanForm";
 import { fetchScanStatus } from "../lib/api";
 import { useScan } from "../contexts/ScanContext";
 import type { ScanStatus } from "../types/api";
+import { Target, AlertTriangle, AlertOctagon, Shield, Loader2 } from 'lucide-react';
+
+// Lazy load the heavy visualization component
+const FindingsVisualizations = lazy(() =>
+  import("../components/FindingsVisualizations").then(module => ({
+    default: module.FindingsVisualizations
+  }))
+);
 
 type TabId = "overview" | "findings" | "graphs" | "logs";
 
@@ -151,29 +159,29 @@ export function Dashboard() {
         {/* Stats Overview */}
         {(findings.length > 0 || progress.length > 0) && (
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatsCard
+            <AnimatedStatsCard
               title="Total Findings"
               value={stats.total}
-              color="cyan"
-              trend={stats.critical > 0 ? "critical" : "normal"}
+              icon={Target}
+              severity="info"
             />
-            <StatsCard
+            <AnimatedStatsCard
               title="Critical"
               value={stats.critical}
-              color="red"
-              trend="critical"
+              icon={AlertOctagon}
+              severity="critical"
             />
-            <StatsCard
+            <AnimatedStatsCard
               title="High Severity"
               value={stats.high}
-              color="orange"
-              trend="warning"
+              icon={AlertTriangle}
+              severity="high"
             />
-            <StatsCard
-              title="Agents"
-              value={`${stats.completedAgents}/${stats.totalAgents}`}
-              color="green"
-              trend="normal"
+            <AnimatedStatsCard
+              title="Medium Severity"
+              value={stats.medium}
+              icon={Shield}
+              severity="medium"
             />
           </section>
         )}
@@ -221,33 +229,36 @@ export function Dashboard() {
           >
             {activeTab === "overview" && (
               <div className="space-y-6">
-                <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-                  <div className="rounded-2xl border border-cyan-500/20 bg-slate-900/50 p-6 shadow-xl backdrop-blur">
-                    <ScanForm onStart={handleStart} />
-                  </div>
-                  <ReportActions scanId={activeScanId ?? undefined} />
+                <div className="rounded-2xl border border-cyan-500/20 bg-slate-900/50 p-6 shadow-xl backdrop-blur">
+                  <ScanForm onStart={handleStart} />
                 </div>
 
-                <div className="rounded-2xl border border-cyan-500/20 bg-slate-900/50 p-6 shadow-xl backdrop-blur">
-                  <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-cyan-300">
-                    <span>⚙️</span>
-                    <span>Agent Progress</span>
-                  </h3>
-                  <AgentProgressList items={progress} />
-                </div>
+                <AgentCommandCenter items={progress} />
+
+                <ReportActions scanId={activeScanId ?? undefined} />
               </div>
             )}
 
             {activeTab === "findings" && (
               <div className="space-y-6">
-                <FindingsTable findings={findings} />
+                <FindingsGrid findings={findings} />
               </div>
             )}
 
             {activeTab === "graphs" && (
               <div className="space-y-6">
                 {findings.length > 0 ? (
-                  <FindingsVisualizations findings={findings} />
+                  <Suspense fallback={
+                    <div className="rounded-2xl border border-cyan-500/20 bg-slate-900/50 p-12 backdrop-blur">
+                      <div className="flex flex-col items-center justify-center gap-4">
+                        <Loader2 className="w-12 h-12 text-cyan-400 animate-spin" />
+                        <p className="text-sm font-semibold text-cyan-300">Loading Analytics...</p>
+                        <p className="text-xs text-slate-400">Preparing data visualizations</p>
+                      </div>
+                    </div>
+                  }>
+                    <FindingsVisualizations findings={findings} />
+                  </Suspense>
                 ) : (
                   <div className="rounded-2xl border border-cyan-500/20 bg-slate-900/50 p-12 text-center backdrop-blur">
                     <p className="text-slate-400">No findings data available. Start a scan to see visualizations.</p>
@@ -270,44 +281,5 @@ export function Dashboard() {
         </AnimatePresence>
       </div>
     </div>
-  );
-}
-
-interface StatsCardProps {
-  title: string;
-  value: number | string;
-  color: "cyan" | "red" | "orange" | "green";
-  trend: "critical" | "warning" | "normal";
-}
-
-function StatsCard({ title, value, color, trend }: StatsCardProps) {
-  const colorClasses = {
-    cyan: "from-cyan-500/20 to-blue-500/20 border-cyan-400/30 text-cyan-300",
-    red: "from-red-500/20 to-rose-500/20 border-red-400/30 text-red-300",
-    orange: "from-orange-500/20 to-amber-500/20 border-orange-400/30 text-orange-300",
-    green: "from-emerald-500/20 to-green-500/20 border-emerald-400/30 text-emerald-300",
-  };
-
-  const trendIcons = {
-    critical: "🔥",
-    warning: "⚠️",
-    normal: "✓",
-  };
-
-  return (
-    <motion.div
-      className={`rounded-xl border bg-gradient-to-br p-5 shadow-lg backdrop-blur transition-all hover:scale-[1.02] ${colorClasses[color]}`}
-      whileHover={{ y: -2 }}
-    >
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-          {title}
-        </p>
-        <span className="text-lg">{trendIcons[trend]}</span>
-      </div>
-      <p className={`mt-2 text-4xl font-bold ${colorClasses[color].split(' ')[2]}`}>
-        {value}
-      </p>
-    </motion.div>
   );
 }

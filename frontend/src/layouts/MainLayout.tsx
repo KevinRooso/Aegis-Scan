@@ -87,7 +87,7 @@ function TabLink({ to, active, disabled = false, onClick, children }: TabLinkPro
           disabled
             ? 'cursor-not-allowed text-gray-600 opacity-50'
             : active
-            ? 'text-aegis-red'
+            ? 'text-cyan-300'
             : 'text-gray-400 hover:text-white'
         }
       `}
@@ -97,7 +97,7 @@ function TabLink({ to, active, disabled = false, onClick, children }: TabLinkPro
 
       {/* Active indicator */}
       {active && !disabled && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-aegis-red shadow-[0_0_10px_rgba(255,51,51,0.5)]" />
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 shadow-lg shadow-cyan-500/50" />
       )}
 
       {/* Lock icon for disabled state */}

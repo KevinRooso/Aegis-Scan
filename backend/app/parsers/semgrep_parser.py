@@ -12,13 +12,28 @@ def parse_semgrep_output(raw: dict[str, Any]) -> List[Finding]:
     the real scanner integration is available.
     """
 
+    # Semgrep severity mapping (handles ERROR and other non-standard severities)
+    SEVERITY_MAP = {
+        "CRITICAL": FindingSeverity.CRITICAL,
+        "HIGH": FindingSeverity.HIGH,
+        "MEDIUM": FindingSeverity.MEDIUM,
+        "LOW": FindingSeverity.LOW,
+        "INFO": FindingSeverity.INFO,
+        "INFORMATIONAL": FindingSeverity.INFO,
+        "ERROR": FindingSeverity.HIGH,  # Map ERROR to HIGH severity
+        "WARNING": FindingSeverity.MEDIUM,  # Map WARNING to MEDIUM
+    }
+
     findings: List[Finding] = []
     for idx, result in enumerate(raw.get("results", []), start=1):
+        raw_severity = result.get("extra", {}).get("severity", "LOW").upper()
+        severity = SEVERITY_MAP.get(raw_severity, FindingSeverity.LOW)
+
         findings.append(
             Finding(
                 id=f"semgrep-{idx}",
                 title=result.get("check_id", "semgrep finding"),
-                severity=FindingSeverity[result.get("extra", {}).get("severity", "LOW").upper()],
+                severity=severity,
                 description=result.get("extra", {}).get("message", ""),
                 remediation="Review code referenced by Semgrep rule.",
                 source_agent="static",  # type: ignore[arg-type]

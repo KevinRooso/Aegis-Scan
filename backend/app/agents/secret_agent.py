@@ -32,6 +32,22 @@ class SecretAgent(BaseAgent):
             "--source",
             str(target_path),
         ]
-        result = await self._tool_launcher.run(command, cwd=target_path)
+
+        # Gitleaks returns exit code 1 when secrets are found (expected behavior)
+        # We need to catch this and parse the output anyway
+        try:
+            result = await self._tool_launcher.run(command, cwd=target_path)
+        except Exception as e:
+            # Check if this is a ToolExecutionError with exit code 1
+            if hasattr(e, 'result') and e.result.exit_code == 1:
+                # Exit code 1 means secrets were found - this is expected!
+                # Parse the stdout which contains the JSON results
+                payload = json.loads(e.result.stdout or "[]")
+                return parse_gitleaks_output(payload)
+            else:
+                # Other errors should be raised
+                raise
+
+        # Exit code 0 means no secrets found
         payload = json.loads(result.stdout or "[]")
         return parse_gitleaks_output(payload)
