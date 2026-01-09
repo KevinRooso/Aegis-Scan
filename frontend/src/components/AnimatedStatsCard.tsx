@@ -84,7 +84,7 @@ export default function AnimatedStatsCard({ title, value, icon: Icon, severity }
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
       whileHover={{ scale: 1.02 }}
-      className={`relative overflow-hidden rounded-lg backdrop-blur-xl bg-slate-900/95 border border-white/10 shadow-2xl ${colors.glow} ${
+      className={`relative overflow-hidden rounded-lg backdrop-blur-xl bg-slate-900/95 border border-white/10 shadow-lg ${colors.glow} ${
         colors.pulse ? 'animate-pulse' : ''
       }`}
     >

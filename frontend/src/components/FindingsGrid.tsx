@@ -264,7 +264,7 @@ export function FindingsGrid({ findings }: Props) {
   }
 
   return (
-    <div className="rounded-3xl border border-white/5 bg-slate-950/60 p-6 shadow-2xl shadow-black/30 backdrop-blur">
+    <div className="rounded-3xl border border-white/5 bg-slate-950/60 p-6 shadow-xl shadow-black/30 backdrop-blur">
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-6">
         <div>
